@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💬 الطبيب الافتراضي</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Cairo", sans-serif;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    /* ====== زر الفقاعة ====== */
+    .chat-toggle {
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #007bff, #00bcd4);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .chat-toggle:hover {
+      transform: scale(1.1);
+    }
+
+    /* ====== نافذة الشات ====== */
+    .chat-widget {
+      position: fixed;
+      bottom: 100px;
+      right: 35px;
+      width: 400px;
+      height: 520px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(50px) scale(0.9);
+      transition: all 0.3s ease;
+      z-index: 999;
+    }
+
+    .chat-widget.open {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0) scale(1);
+    }
+
+    /* ====== الرأس ====== */
+    .chat-header {
+      background: linear-gradient(135deg, #007BFF, #00BCD4);
+      color: white;
+      padding: 14px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 0.3px;
+    }
+
+    /* ====== الرسائل ====== */
+    .chat-body {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      background: #f9fbfd;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message {
+      margin-bottom: 12px;
+      padding: 10px 15px;
+      border-radius: 14px;
+      max-width: 80%;
+      line-height: 1.6;
+      word-wrap: break-word;
+    }
+
+    .user {
+      background: #007BFF;
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    .bot {
+      background: #E9ECEF;
+      color: #333;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+
+    /* ====== شريط الإدخال ====== */
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      outline: none;
+      font-size: 15px;
+    }
+
+    .chat-input button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: background 0.2s;
+    }
+
+    .chat-input button:hover {
+      background: #0056b3;
+    }
+
+    .typing {
+      font-style: italic;
+      color: #888;
+      margin-top: -5px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 💬 زر الفقاعة -->
+  <div class="chat-toggle" id="chatToggle">💬</div>
+
+  <!-- 🧠 نافذة الدردشة -->
+  <div class="chat-widget" id="chatWidget">
+    <div class="chat-header">🤖 الطبيب الافتراضي</div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input">
+      <input id="userInput" type="text" placeholder="اكتب سؤالك هنا..." />
+      <button id="sendBtn">إرسال</button>
+    </div>
+  </div>
+
+  <script>
+    const widget = document.getElementById("chatWidget");
+    const toggle = document.getElementById("chatToggle");
+    const sendBtn = document.getElementById("sendBtn");
+    const userInput = document.getElementById("userInput");
+    const chatBody = document.getElementById("chatBody");
+
+    // 🟢 فتح وغلق الفقاعة
+    toggle.onclick = () => {
+      widget.classList.toggle("open");
+    };
+
+    // ✍️ إضافة الرسائل مع تأثير الكتابة
+    function appendMessage(sender, text) {
+      const msg = document.createElement("div");
+      msg.classList.add("message", sender);
+      chatBody.appendChild(msg);
+
+      let i = 0;
+      function typeWriter() {
+        if (i < text.length) {
+          msg.innerHTML += text.charAt(i);
+          i++;
+          chatBody.scrollTop = chatBody.scrollHeight;
+          setTimeout(typeWriter, 15); // سرعة الكتابة
+        }
+      }
+      typeWriter();
+    }
+
+    // 🚀 إرسال الرسالة
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      appendMessage("user", message);
+      userInput.value = "";
+
+      const typing = document.createElement("div");
+      typing.classList.add("typing");
+      typing.innerText = "يكتب...";
+      chatBody.appendChild(typing);
+      chatBody.scrollTop = chatBody.scrollHeight;
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        typing.remove();
+        appendMessage("bot", data.reply);
+      } catch (err) {
+        typing.remove();
+        appendMessage("bot", "⚠️ حدث خطأ أثناء الاتصال بالخادم.");
+      }
+    }
+
+    sendBtn.onclick = sendMessage;
+    userInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+</body>
+</html>
